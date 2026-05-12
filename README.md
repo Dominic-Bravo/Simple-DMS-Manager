@@ -23,9 +23,17 @@ The system follows a two-step process:
 2. **Metadata Extraction:** Parses digitized document filenames to automate the insertion of document types and reference numbers into the database, reducing manual entry errors by over 80%.
 
 ## Usage
-1. Place scanned document PDFs into the designated source folder.
-2. Run the `dms_manager.py` script.
-3. The system parses the filenames (e.g., `PR_2025-001.pdf`), extracts the document ID, and logs the entry into `gov_records.db`.
+1. Place scanned document PDFs into a folder.
+2. Run:
+   - `python -m dms.cli init-db`
+   - `python -m dms.cli index --dir <folder>`
+3. Filenames supported (case-insensitive for document type):
+   - `PR_2025-001.pdf`
+   - `PR-2025-001.pdf`
+
+Notes:
+- Files are copied to `government_records/archive/<DOC_TYPE>/`.
+- Records are stored in `government_records/records.db`.
 
 ## Future Scope
 * Implementing an OCR (Optical Character Recognition) module to parse content directly from scanned PDFs.
