@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from dms.config import DEFAULT_DOC_TYPES
+from dms.config import DEFAULT_DOC_TYPES, SUPPORTED_EXTENSIONS
 
 @dataclass
 class ParsedFilename:
@@ -42,10 +42,10 @@ def parse_filename(filename: str) -> ParsedFilename:
     Parses a filename to extract the document type and reference number.
 
     This function supports two filename patterns:
-    1. `TYPE_YYYY-N.pdf` (e.g., "PR_2025-001.pdf")
-    2. `TYPE-YYYY-N.pdf` (e.g., "PR-2025-001.pdf")
+    1. `TYPE_YYYY-N.ext` (e.g., "PR_2025-001.pdf")
+    2. `TYPE-YYYY-N.ext` (e.g., "PR-2025-001.docx")
 
-    The document type and `.pdf` extension are case-insensitive for matching.
+    The document type and supported file extensions are case-insensitive.
 
     Args:
         filename (str): The name of the file to parse.
@@ -54,11 +54,15 @@ def parse_filename(filename: str) -> ParsedFilename:
         ParsedFilename: A dataclass containing the parsed data, status, and any error message.
     """
     # 1. Validate the file extension.
-    if Path(filename).suffix.lower() != ".pdf":
+    extension = Path(filename).suffix.lower()
+    if extension not in SUPPORTED_EXTENSIONS:
         return ParsedFilename(
             original_filename=filename,
             status="skipped",
-            error_message="File does not have a '.pdf' extension."
+            error_message=(
+                "Unsupported file extension. Expected one of: "
+                f"{', '.join(sorted(SUPPORTED_EXTENSIONS))}."
+            )
         )
 
     # Remove the '.pdf' extension to parse the core filename
@@ -77,7 +81,7 @@ def parse_filename(filename: str) -> ParsedFilename:
         return ParsedFilename(
             original_filename=filename,
             status="skipped",
-            error_message="Filename does not match expected pattern (e.g., 'TYPE_YYYY-N.pdf' or 'TYPE-YYYY-N.pdf')."
+            error_message="Filename does not match expected pattern (e.g., 'TYPE_YYYY-N.ext' or 'TYPE-YYYY-N.ext')."
         )
 
     extracted_doc_type, extracted_ref_number = match.groups()

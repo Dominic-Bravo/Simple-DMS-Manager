@@ -23,17 +23,21 @@ The system follows a two-step process:
 2. **Metadata Extraction:** Parses digitized document filenames to automate the insertion of document types and reference numbers into the database, reducing manual entry errors by over 80%.
 
 ## Usage
-1. Place scanned document PDFs into a folder.
+1. Place scanned documents into a folder.
 2. Run:
    - `python -m dms.cli init-db`
    - `python -m dms.cli index --dir <folder>`
-3. Filenames supported (case-insensitive for document type):
+3. Or open the desktop UI:
+   - `python -m dms.cli ui`
+4. Filenames supported (case-insensitive for document type and extension):
    - `PR_2025-001.pdf`
-   - `PR-2025-001.pdf`
+   - `PR-2025-001.docx`
 
 Notes:
 - Files are copied to `government_records/archive/<DOC_TYPE>/`.
 - Records are stored in `government_records/records.db`.
+- Supported file extensions: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.csv`.
+- The UI can add files to the inbox, index them, show database records, and export database data to CSV, XLSX, PDF, or DOC reports.
 
 ## Future Scope
 * Implementing an OCR (Optical Character Recognition) module to parse content directly from scanned PDFs.

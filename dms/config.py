@@ -20,6 +20,9 @@ DEFAULT_DOC_TYPES = {
     "REC"  # Receipt
 }
 
+# File types the system will accept for indexing.
+SUPPORTED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv"}
+
 # Database configuration.
 # Name of the SQLite database file.
 DB_NAME = "records.db"

@@ -6,6 +6,11 @@ from typing import List, Dict, Any
 
 from dms import config
 
+RECORD_COLUMNS = [
+    "doc_id", "doc_type", "reference_number", "filename", "date_filed",
+    "date_indexed", "storage_location", "status", "file_size_kb", "notes"
+]
+
 def get_db_path() -> Path:
     """Returns the full path to the SQLite database file."""
     return config.BASE_DIR / config.DB_NAME
@@ -121,3 +126,29 @@ def insert_records(records: List[Dict[str, Any]]) -> int:
         if conn:
             conn.close()
     return inserted_count
+
+def fetch_records() -> List[Dict[str, Any]]:
+    """Returns all document records ordered by newest indexed date first."""
+    db_path = get_db_path()
+    if not db_path.exists():
+        return []
+
+    conn: sqlite3.Connection | None = None
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT {", ".join(RECORD_COLUMNS)}
+            FROM {config.DB_TABLE_NAME}
+            ORDER BY date_indexed DESC, doc_id DESC;
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] Failed to fetch records: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()

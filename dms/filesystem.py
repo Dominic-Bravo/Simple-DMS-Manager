@@ -37,7 +37,7 @@ def ensure_directory_structure() -> None:
 
 def scan_directory(path: Path) -> List[Path]:
     """
-    Scans a given directory for files ending with '.pdf' (case-insensitive).
+    Scans a given directory for supported document files.
 
     Args:
         path: The Path object representing the directory to scan.
@@ -51,7 +51,7 @@ def scan_directory(path: Path) -> List[Path]:
 
     pdf_files: List[Path] = []
     for item in path.iterdir():
-        if item.is_file() and item.suffix.lower() == '.pdf':
+        if item.is_file() and item.suffix.lower() in config.SUPPORTED_EXTENSIONS:
             pdf_files.append(item)
     return pdf_files
 

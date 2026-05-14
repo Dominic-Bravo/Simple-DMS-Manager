@@ -35,6 +35,11 @@ def main():
         help=f"Path to the inbox directory containing documents to index. Defaults to '{config.BASE_DIR / config.INBOX_DIR_NAME}'."
     )
 
+    subparsers.add_parser(
+        "ui",
+        help="Open the desktop user interface."
+    )
+
     args = parser.parse_args()
 
     if args.command == "init-db":
@@ -54,6 +59,10 @@ def main():
             f"Skipped (Unknown Type): {summary['skipped_unknown_type']} | "
             f"Skipped (Invalid Format): {summary['skipped_invalid_format']}"
         )
+    elif args.command == "ui":
+        from dms import ui
+
+        ui.main()
     else:
         parser.print_help()
 
