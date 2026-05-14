@@ -61,8 +61,14 @@ class DmsApp(tk.Tk):
         ttk.Button(filebar, text="Browse Folder", command=self.choose_inbox).grid(
             row=0, column=2, padx=(0, 8)
         )
+        ttk.Button(filebar, text="Project Records", command=self.show_project_records).grid(
+            row=0, column=3, padx=(0, 8)
+        )
+        ttk.Button(filebar, text="Open Folder", command=self.open_current_folder).grid(
+            row=0, column=4, padx=(0, 8)
+        )
         ttk.Button(filebar, text="Index Folder", command=self.index_inbox).grid(
-            row=0, column=3
+            row=0, column=5
         )
 
         main = ttk.PanedWindow(self, orient=tk.VERTICAL)
@@ -248,6 +254,20 @@ class DmsApp(tk.Tk):
             self.refresh_files()
             self.status_text.set(f"Inbox selected: {selected}")
 
+    def show_project_records(self) -> None:
+        project_records = self._project_root() / "government_records"
+        project_records.mkdir(parents=True, exist_ok=True)
+        self.inbox_dir.set(str(project_records))
+        self.refresh_files()
+        self.status_text.set(f"Viewing project records folder: {project_records}")
+
+    def open_current_folder(self) -> None:
+        folder = Path(self.inbox_dir.get())
+        if not folder.is_dir():
+            messagebox.showwarning("DMS", f"Folder does not exist:\n{folder}")
+            return
+        os.startfile(folder)
+
     def initialize_workspace(self, show_message: bool = True) -> None:
         output = self._capture_output(self._init_workspace)
         self._append_log(output)
@@ -293,14 +313,12 @@ class DmsApp(tk.Tk):
         if not folder.is_dir():
             return
 
-        for file_path in sorted(folder.iterdir(), key=lambda path: path.name.lower()):
-            if not file_path.is_file():
-                continue
+        for file_path in sorted(folder.iterdir(), key=lambda path: (not path.is_dir(), path.name.lower())):
             stat = file_path.stat()
             record = {
                 "name": file_path.name,
-                "type": file_path.suffix.lower() or "(none)",
-                "size": stat.st_size,
+                "type": "(folder)" if file_path.is_dir() else file_path.suffix.lower() or "(none)",
+                "size": "" if file_path.is_dir() else stat.st_size,
                 "path": str(file_path),
             }
             self.folder_files.append(record)
@@ -423,6 +441,9 @@ class DmsApp(tk.Tk):
         if not file_path.exists():
             messagebox.showwarning("DMS", f"File does not exist:\n{file_path}")
             return
+        if file_path.is_dir():
+            messagebox.showwarning("DMS", "Select a file to convert, not a folder.")
+            return
 
         output_path = self._choose_file_conversion_path(file_path)
         if not output_path:
@@ -444,6 +465,9 @@ class DmsApp(tk.Tk):
             return
         if not file_path.exists():
             messagebox.showwarning("DMS", f"File does not exist:\n{file_path}")
+            return
+        if file_path.is_dir():
+            messagebox.showwarning("DMS", "Folder deletion is not available here. Open the folder and manage it in Explorer.")
             return
         if not messagebox.askyesno(
             "Delete file",
@@ -480,6 +504,9 @@ class DmsApp(tk.Tk):
         if file_path.is_absolute() or file_path.exists():
             return file_path
         return Path(self.db_path.get()).parent / file_path
+
+    def _project_root(self) -> Path:
+        return Path(__file__).resolve().parent.parent
 
     def export_db(self, format_name: str) -> None:
         records = db.fetch_records()
