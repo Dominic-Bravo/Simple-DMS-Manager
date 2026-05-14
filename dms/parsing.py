@@ -1,41 +1,94 @@
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
 
+from dms.config import DEFAULT_DOC_TYPES
 
-@dataclass(frozen=True)
+@dataclass
 class ParsedFilename:
-    doc_type: str
-    reference_number: str
+    """
+    A dataclass to hold the results of filename parsing.
 
-
-# Matches either:
-# - PR_2025-001.pdf
-# - PR-2025-001.pdf
-_FILENAME_RE = re.compile(
-    r"^(?P<doc_type>[A-Z]{2,5})[-_](?P<ref>\d{4}-\d+)(?:\.[Pp][Dd][Ff])$"
-)
-
+    Attributes:
+        original_filename (str): The original filename that was parsed.
+        doc_type (Optional[str]): The extracted document type (e.g., "PR", "PO").
+                                   None if parsing failed or type is unknown.
+        reference_number (Optional[str]): The extracted reference number (e.g., "2025-001").
+                                          None if parsing failed.
+        status (str): The status of the parsing operation. Can be "success", "error", or "skipped".
+        error_message (Optional[str]): A message detailing any error or reason for skipping.
+    """
+    original_filename: str
+    doc_type: Optional[str] = None
+    reference_number: Optional[str] = None
+    status: str = "error"  # Default status is error, updated on success or specific skip conditions
+    error_message: Optional[str] = None
 
 def parse_filename(filename: str) -> ParsedFilename:
-    """Parse a document filename into structured data.
-
-    Expected patterns (case-insensitive for doc_type, extension):
-    - PR_2025-001.pdf
-    - PR-2025-001.pdf
-
-    Raises:
-        ValueError: if the filename doesn't match the expected format.
     """
-    fname = filename.strip()
-    m = _FILENAME_RE.match(fname)
-    if not m:
-        raise ValueError(
-            "Invalid filename format. Expected e.g. PR_2025-001.pdf or PR-2025-001.pdf"
+    Parses a filename to extract the document type and reference number.
+
+    This function supports two filename patterns:
+    1. `TYPE_YYYY-N.pdf` (e.g., "PR_2025-001.pdf")
+    2. `TYPE-YYYY-N.pdf` (e.g., "PR-2025-001.pdf")
+
+    The document type is case-insensitive for matching but will be converted to uppercase
+    for validation against `DEFAULT_DOC_TYPES`. The `.pdf` extension is case-sensitive.
+
+    Args:
+        filename (str): The name of the file to parse.
+
+    Returns:
+        ParsedFilename: A dataclass containing the parsed data, status, and any error message.
+    """
+    # 1. Validate the file extension: Must be '.pdf' (case-sensitive)
+    if not filename.endswith(".pdf"):
+        return ParsedFilename(
+            original_filename=filename,
+            status="skipped",
+            error_message="File does not have a case-sensitive '.pdf' extension."
         )
 
-    doc_type = m.group("doc_type").upper()
-    reference_number = m.group("ref")
-    return ParsedFilename(doc_type=doc_type, reference_number=reference_number)
+    # Remove the '.pdf' extension to parse the core filename
+    name_without_ext = Path(filename).stem
 
+    # 2. Use a regular expression to extract document type and reference number.
+    # The regex captures:
+    #   - Group 1: Document Type (e.g., "PR", "PO") - one or more letters.
+    #   - Separator: Either '_' or '-' between type and reference number.
+    #   - Group 2: Reference Number (e.g., "2025-001") - four digits, a hyphen, then one or more digits.
+    # The `^` and `$` anchors ensure the entire string matches the pattern.
+    pattern = re.compile(r"^([A-Za-z]+)[_-](\d{4}-\d+)$")
+    match = pattern.match(name_without_ext)
+
+    if not match:
+        return ParsedFilename(
+            original_filename=filename,
+            status="skipped",
+            error_message="Filename does not match expected pattern (e.g., 'TYPE_YYYY-N.pdf' or 'TYPE-YYYY-N.pdf')."
+        )
+
+    extracted_doc_type, extracted_ref_number = match.groups()
+    # Convert the extracted document type to uppercase for consistent validation
+    extracted_doc_type_upper = extracted_doc_type.upper()
+
+    # 3. Validate the extracted document type against the list of known types.
+    if extracted_doc_type_upper not in DEFAULT_DOC_TYPES:
+        return ParsedFilename(
+            original_filename=filename,
+            status="skipped",
+            error_message=f"Unknown document type '{extracted_doc_type}'. Expected one of: {', '.join(sorted(DEFAULT_DOC_TYPES))}."
+        )
+
+    # 4. The reference number format (YYYY-N+) is implicitly validated by the regex `\d{4}-\d+`.
+    # No further explicit validation is needed for the reference number itself.
+
+    # If all checks pass, return a success status with the parsed data.
+    return ParsedFilename(
+        original_filename=filename,
+        doc_type=extracted_doc_type_upper,
+        reference_number=extracted_ref_number,
+        status="success",
+        error_message=None
+    )

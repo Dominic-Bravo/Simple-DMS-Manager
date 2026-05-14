@@ -1,5 +1,2 @@
-"""Municipal Document Management System (DMS).
-
-Unified codebase for indexing, organizing, exporting, and storing document metadata.
-"""
-
+# This file marks the dms directory as a Python package.
+# It can be left empty or used for package-wide initialization.
