@@ -20,10 +20,16 @@ def _timestamped_path(export_dir: Path, suffix: str) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return export_dir / f"records_{timestamp}.{suffix}"
 
+def _export_path(export_dir: Path, suffix: str, output_path: Path | None = None) -> Path:
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        return output_path.with_suffix(f".{suffix}")
+    return _timestamped_path(export_dir, suffix)
+
 def _rows_with_headers(records: List[Dict[str, Any]]) -> list[list[Any]]:
     return [FIELDNAMES] + [[record.get(field, "") for field in FIELDNAMES] for record in records]
 
-def export_records_to_csv(records: List[Dict[str, Any]], export_dir: Path) -> Path | None:
+def export_records_to_csv(records: List[Dict[str, Any]], export_dir: Path, output_path: Path | None = None) -> Path | None:
     """
     Exports a list of document records to a timestamped CSV file.
 
@@ -38,7 +44,7 @@ def export_records_to_csv(records: List[Dict[str, Any]], export_dir: Path) -> Pa
         print("[EXPORT] No records to export to CSV.")
         return None
 
-    csv_path = _timestamped_path(export_dir, "csv")
+    csv_path = _export_path(export_dir, "csv", output_path)
 
     try:
         with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
@@ -54,13 +60,13 @@ def export_records_to_csv(records: List[Dict[str, Any]], export_dir: Path) -> Pa
         print(f"[EXPORT ERROR] Failed to write CSV file '{csv_path}': {e}")
         return None
 
-def export_records_to_html(records: List[Dict[str, Any]], export_dir: Path) -> Path | None:
+def export_records_to_html(records: List[Dict[str, Any]], export_dir: Path, output_path: Path | None = None) -> Path | None:
     """Exports records to a printable HTML report."""
     if not records:
         print("[EXPORT] No records to export to HTML.")
         return None
 
-    html_path = _timestamped_path(export_dir, "html")
+    html_path = _export_path(export_dir, "html", output_path)
     table_rows = []
     for row in _rows_with_headers(records):
         tag = "th" if row == FIELDNAMES else "td"
@@ -98,12 +104,12 @@ def export_records_to_html(records: List[Dict[str, Any]], export_dir: Path) -> P
         print(f"[EXPORT ERROR] Failed to write HTML file '{html_path}': {e}")
         return None
 
-def export_records_to_doc(records: List[Dict[str, Any]], export_dir: Path) -> Path | None:
+def export_records_to_doc(records: List[Dict[str, Any]], export_dir: Path, output_path: Path | None = None) -> Path | None:
     """Exports records to a Word-compatible .doc file containing HTML."""
-    html_path = export_records_to_html(records, export_dir)
+    doc_path = _export_path(export_dir, "doc", output_path)
+    html_path = export_records_to_html(records, export_dir, doc_path.with_suffix(".html"))
     if not html_path:
         return None
-    doc_path = html_path.with_suffix(".doc")
     try:
         html_path.replace(doc_path)
         print(f"[EXPORT] DOC saved: {doc_path}")
@@ -112,13 +118,13 @@ def export_records_to_doc(records: List[Dict[str, Any]], export_dir: Path) -> Pa
         print(f"[EXPORT ERROR] Failed to write DOC file '{doc_path}': {e}")
         return None
 
-def export_records_to_xlsx(records: List[Dict[str, Any]], export_dir: Path) -> Path | None:
+def export_records_to_xlsx(records: List[Dict[str, Any]], export_dir: Path, output_path: Path | None = None) -> Path | None:
     """Exports records to a basic XLSX workbook using only the Python standard library."""
     if not records:
         print("[EXPORT] No records to export to XLSX.")
         return None
 
-    xlsx_path = _timestamped_path(export_dir, "xlsx")
+    xlsx_path = _export_path(export_dir, "xlsx", output_path)
     rows = _rows_with_headers(records)
 
     sheet_rows = []
@@ -153,13 +159,13 @@ def export_records_to_xlsx(records: List[Dict[str, Any]], export_dir: Path) -> P
         print(f"[EXPORT ERROR] Failed to write XLSX file '{xlsx_path}': {e}")
         return None
 
-def export_records_to_pdf(records: List[Dict[str, Any]], export_dir: Path) -> Path | None:
+def export_records_to_pdf(records: List[Dict[str, Any]], export_dir: Path, output_path: Path | None = None) -> Path | None:
     """Exports records to a simple text-based PDF report."""
     if not records:
         print("[EXPORT] No records to export to PDF.")
         return None
 
-    pdf_path = _timestamped_path(export_dir, "pdf")
+    pdf_path = _export_path(export_dir, "pdf", output_path)
     lines = ["Document Records Report", f"Generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ""]
     for record in records:
         lines.append(

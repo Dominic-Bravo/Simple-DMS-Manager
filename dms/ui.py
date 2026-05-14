@@ -202,6 +202,10 @@ class DmsApp(tk.Tk):
             messagebox.showwarning("DMS", "No database records to export.")
             return
 
+        output_path = self._choose_export_path(format_name)
+        if not output_path:
+            return
+
         export_dir = config.BASE_DIR / config.EXPORT_DIR_NAME
         exporters = {
             "csv": export.export_records_to_csv,
@@ -210,11 +214,33 @@ class DmsApp(tk.Tk):
             "doc": export.export_records_to_doc,
         }
         exporter = exporters[format_name]
-        path = exporter(records, export_dir)
+        path = exporter(records, export_dir, output_path)
         if path:
             self._append_log(f"Exported {format_name.upper()}: {path}")
             self.status_text.set(f"Exported {path}")
             messagebox.showinfo("DMS", f"Export saved:\n{path}")
+
+    def _choose_export_path(self, format_name: str) -> Path | None:
+        details = {
+            "csv": ("CSV file", ".csv", [("CSV files", "*.csv")]),
+            "xlsx": ("Excel workbook", ".xlsx", [("Excel workbooks", "*.xlsx")]),
+            "pdf": ("PDF report", ".pdf", [("PDF files", "*.pdf")]),
+            "doc": ("Word document", ".doc", [("Word documents", "*.doc")]),
+        }
+        label, extension, filetypes = details[format_name]
+        export_dir = config.BASE_DIR / config.EXPORT_DIR_NAME
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        selected = filedialog.asksaveasfilename(
+            title=f"Save {label}",
+            initialdir=str(export_dir.resolve()),
+            initialfile=f"document_records{extension}",
+            defaultextension=extension,
+            filetypes=filetypes + [("All files", "*.*")],
+        )
+        if not selected:
+            return None
+        return Path(selected)
 
     def _capture_output(self, action) -> str:
         stream = io.StringIO()

@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Document Records Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    p { color: #555; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: left; vertical-align: top; }
+    th { background: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <h1>Document Records Report</h1>
+  <p>Generated 2026-05-14 21:43:45</p>
+  <table>
+    <tr><th>doc_id</th><th>doc_type</th><th>reference_number</th><th>filename</th><th>date_filed</th><th>date_indexed</th><th>storage_location</th><th>status</th><th>file_size_kb</th><th>notes</th></tr><tr><td>3</td><td>PR</td><td>2025-001</td><td>PR_2025-001.pdf</td><td>2026-05-12</td><td>2026-05-12T20:57:11.452879</td><td>C:\Users\63966\Documents\project\OJTProject\government_records\archive\PR</td><td>validated</td><td></td><td></td></tr><tr><td>2</td><td>PO</td><td>2025-010</td><td>PO-2025-010.pdf</td><td>2026-05-12</td><td>2026-05-12T20:57:11.450348</td><td>C:\Users\63966\Documents\project\OJTProject\government_records\archive\PO</td><td>validated</td><td></td><td></td></tr><tr><td>1</td><td>DV</td><td>2025-005</td><td>DV-2025-005.pdf</td><td>2026-05-12</td><td>2026-05-12T20:57:11.447350</td><td>C:\Users\63966\Documents\project\OJTProject\government_records\archive\DV</td><td>validated</td><td></td><td></td></tr>
+  </table>
+</body>
+</html>
