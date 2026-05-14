@@ -6,6 +6,8 @@ from typing import List, Dict, Any
 
 from dms import config
 
+_db_path_override: Path | None = None
+
 RECORD_COLUMNS = [
     "doc_id", "doc_type", "reference_number", "filename", "date_filed",
     "date_indexed", "storage_location", "status", "file_size_kb", "notes"
@@ -13,7 +15,14 @@ RECORD_COLUMNS = [
 
 def get_db_path() -> Path:
     """Returns the full path to the SQLite database file."""
+    if _db_path_override is not None:
+        return _db_path_override
     return config.BASE_DIR / config.DB_NAME
+
+def set_db_path(path: Path | str | None) -> None:
+    """Overrides the active SQLite database path for UI/viewer workflows."""
+    global _db_path_override
+    _db_path_override = Path(path) if path else None
 
 def init_db() -> None:
     """
@@ -149,6 +158,31 @@ def fetch_records() -> List[Dict[str, Any]]:
     except sqlite3.Error as e:
         print(f"[DB ERROR] Failed to fetch records: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
+
+def delete_record(doc_id: int) -> bool:
+    """Deletes a document record by primary key."""
+    db_path = get_db_path()
+    if not db_path.exists():
+        return False
+
+    conn: sqlite3.Connection | None = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            f"DELETE FROM {config.DB_TABLE_NAME} WHERE doc_id = ?;",
+            (doc_id,),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] Failed to delete record: {e}")
+        if conn:
+            conn.rollback()
+        return False
     finally:
         if conn:
             conn.close()

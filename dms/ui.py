@@ -1,6 +1,5 @@
 import contextlib
 import io
-import shutil
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -15,41 +14,56 @@ class DmsApp(tk.Tk):
         self.geometry("1180x720")
         self.minsize(960, 620)
 
-        self.inbox_dir = tk.StringVar(
-            value=str(config.BASE_DIR / config.INBOX_DIR_NAME)
-        )
+        default_db = Path.home() / "Documents" / config.DB_NAME
+        self.db_path = tk.StringVar(value=str(default_db))
+        self.inbox_dir = tk.StringVar(value="")
         self.status_text = tk.StringVar(value="Ready")
+        self.records = []
 
         self._build_layout()
-        self.initialize_workspace(show_message=False)
+        self._set_active_database(default_db)
         self.refresh_records()
 
     def _build_layout(self) -> None:
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=1)
 
         toolbar = ttk.Frame(self, padding=10)
         toolbar.grid(row=0, column=0, sticky="ew")
         toolbar.columnconfigure(1, weight=1)
 
-        ttk.Label(toolbar, text="Inbox").grid(row=0, column=0, sticky="w")
-        inbox_entry = ttk.Entry(toolbar, textvariable=self.inbox_dir)
-        inbox_entry.grid(row=0, column=1, sticky="ew", padx=8)
-        ttk.Button(toolbar, text="Browse", command=self.choose_inbox).grid(
+        ttk.Label(toolbar, text="Database").grid(row=0, column=0, sticky="w")
+        db_entry = ttk.Entry(toolbar, textvariable=self.db_path)
+        db_entry.grid(row=0, column=1, sticky="ew", padx=8)
+        ttk.Button(toolbar, text="Browse DB", command=self.choose_database).grid(
             row=0, column=2, padx=(0, 8)
         )
-        ttk.Button(toolbar, text="Add Files", command=self.add_files_to_inbox).grid(
+        ttk.Button(toolbar, text="New DB", command=self.create_database).grid(
             row=0, column=3, padx=(0, 8)
         )
         ttk.Button(toolbar, text="Init DB", command=self.initialize_workspace).grid(
             row=0, column=4, padx=(0, 8)
         )
-        ttk.Button(toolbar, text="Index Inbox", command=self.index_inbox).grid(
+        ttk.Button(toolbar, text="Delete DB File", command=self.delete_database_file).grid(
             row=0, column=5
         )
 
+        filebar = ttk.Frame(self, padding=(10, 0, 10, 10))
+        filebar.grid(row=1, column=0, sticky="ew")
+        filebar.columnconfigure(1, weight=1)
+
+        ttk.Label(filebar, text="Files Folder").grid(row=0, column=0, sticky="w")
+        inbox_entry = ttk.Entry(filebar, textvariable=self.inbox_dir)
+        inbox_entry.grid(row=0, column=1, sticky="ew", padx=8)
+        ttk.Button(filebar, text="Browse Folder", command=self.choose_inbox).grid(
+            row=0, column=2, padx=(0, 8)
+        )
+        ttk.Button(filebar, text="Index Folder", command=self.index_inbox).grid(
+            row=0, column=3
+        )
+
         main = ttk.PanedWindow(self, orient=tk.VERTICAL)
-        main.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        main.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
         data_frame = ttk.LabelFrame(main, text="Database Records", padding=8)
         data_frame.columnconfigure(0, weight=1)
@@ -110,6 +124,15 @@ class DmsApp(tk.Tk):
             side=tk.LEFT, padx=(0, 8)
         )
         ttk.Button(action_bar, text="Export DOC", command=lambda: self.export_db("doc")).pack(
+            side=tk.LEFT, padx=(0, 16)
+        )
+        ttk.Button(action_bar, text="Delete Row", command=self.delete_selected_record).pack(
+            side=tk.LEFT, padx=(0, 8)
+        )
+        ttk.Button(action_bar, text="Delete File", command=self.delete_selected_file).pack(
+            side=tk.LEFT, padx=(0, 8)
+        )
+        ttk.Button(action_bar, text="Delete Row + File", command=self.delete_selected_record_and_file).pack(
             side=tk.LEFT
         )
 
@@ -125,7 +148,42 @@ class DmsApp(tk.Tk):
         log_scroll.grid(row=0, column=1, sticky="ns")
 
         status = ttk.Label(self, textvariable=self.status_text, padding=(10, 0, 10, 8))
-        status.grid(row=2, column=0, sticky="ew")
+        status.grid(row=3, column=0, sticky="ew")
+
+    def _set_active_database(self, path: Path) -> None:
+        db_path = Path(path)
+        db.set_db_path(db_path)
+        config.BASE_DIR = db_path.parent
+        config.DB_NAME = db_path.name
+        self.db_path.set(str(db_path))
+        if not self.inbox_dir.get():
+            self.inbox_dir.set(str(db_path.parent / config.INBOX_DIR_NAME))
+
+    def choose_database(self) -> None:
+        selected = filedialog.askopenfilename(
+            title="Choose SQLite database",
+            initialdir=str(Path(self.db_path.get()).resolve().parent),
+            filetypes=[("SQLite databases", "*.db *.sqlite *.sqlite3"), ("All files", "*.*")],
+        )
+        if selected:
+            self._set_active_database(Path(selected))
+            self.refresh_records()
+            self.status_text.set(f"Viewing database: {selected}")
+
+    def create_database(self) -> None:
+        selected = filedialog.asksaveasfilename(
+            title="Create SQLite database",
+            initialdir=str(Path(self.db_path.get()).resolve().parent),
+            initialfile=config.DB_NAME,
+            defaultextension=".db",
+            filetypes=[("SQLite databases", "*.db"), ("All files", "*.*")],
+        )
+        if not selected:
+            return
+        self._set_active_database(Path(selected))
+        self.initialize_workspace(show_message=False)
+        self.refresh_records()
+        messagebox.showinfo("DMS", f"Database ready:\n{selected}")
 
     def choose_inbox(self) -> None:
         selected = filedialog.askdirectory(
@@ -135,33 +193,6 @@ class DmsApp(tk.Tk):
         if selected:
             self.inbox_dir.set(selected)
             self.status_text.set(f"Inbox selected: {selected}")
-
-    def add_files_to_inbox(self) -> None:
-        filetypes = [
-            ("Supported documents", "*.pdf *.doc *.docx *.xls *.xlsx *.csv"),
-            ("All files", "*.*"),
-        ]
-        selected_files = filedialog.askopenfilenames(
-            title="Add files to inbox",
-            filetypes=filetypes,
-        )
-        if not selected_files:
-            return
-
-        inbox = Path(self.inbox_dir.get())
-        inbox.mkdir(parents=True, exist_ok=True)
-        copied = 0
-        skipped = 0
-        for file_name in selected_files:
-            source = Path(file_name)
-            if source.suffix.lower() not in config.SUPPORTED_EXTENSIONS:
-                skipped += 1
-                continue
-            shutil.copy2(source, inbox / source.name)
-            copied += 1
-
-        self._append_log(f"Added {copied} file(s) to {inbox}. Skipped {skipped}.")
-        self.status_text.set(f"Added {copied} file(s) to inbox")
 
     def initialize_workspace(self, show_message: bool = True) -> None:
         output = self._capture_output(self._init_workspace)
@@ -175,6 +206,7 @@ class DmsApp(tk.Tk):
         db.init_db()
 
     def index_inbox(self) -> None:
+        self._set_active_database(Path(self.db_path.get()))
         inbox = Path(self.inbox_dir.get())
         if not inbox.is_dir():
             messagebox.showerror("DMS", f"Inbox folder does not exist:\n{inbox}")
@@ -186,6 +218,7 @@ class DmsApp(tk.Tk):
         self.status_text.set("Indexing complete")
 
     def refresh_records(self) -> None:
+        self._set_active_database(Path(self.db_path.get()))
         self.records = db.fetch_records()
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -195,6 +228,99 @@ class DmsApp(tk.Tk):
             self.tree.insert("", tk.END, values=values)
 
         self.status_text.set(f"Loaded {len(self.records)} database record(s)")
+
+    def delete_selected_record(self) -> None:
+        record = self._selected_record()
+        if not record:
+            return
+        if not messagebox.askyesno(
+            "Delete database row",
+            f"Delete this database row?\n\n{record.get('filename', '')}",
+        ):
+            return
+        if db.delete_record(int(record["doc_id"])):
+            self._append_log(f"Deleted database row: {record['doc_id']}")
+            self.refresh_records()
+        else:
+            messagebox.showerror("DMS", "Could not delete the selected database row.")
+
+    def delete_selected_file(self) -> bool:
+        record = self._selected_record()
+        if not record:
+            return False
+        storage_location = record.get("storage_location")
+        if not storage_location:
+            messagebox.showwarning("DMS", "This record has no file path.")
+            return False
+        file_path = self._resolve_record_file(storage_location)
+        if not file_path.exists():
+            messagebox.showwarning("DMS", f"File does not exist:\n{file_path}")
+            return False
+        if not messagebox.askyesno(
+            "Delete file",
+            f"Permanently delete this file?\n\n{file_path}",
+        ):
+            return False
+        file_path.unlink()
+        self._append_log(f"Deleted file: {file_path}")
+        self.status_text.set(f"Deleted file: {file_path}")
+        return True
+
+    def delete_selected_record_and_file(self) -> None:
+        record = self._selected_record()
+        if not record:
+            return
+        if not messagebox.askyesno(
+            "Delete row and file",
+            f"Permanently delete the database row and archived file?\n\n{record.get('filename', '')}",
+        ):
+            return
+
+        storage_location = record.get("storage_location")
+        file_deleted = False
+        if storage_location:
+            file_path = self._resolve_record_file(storage_location)
+            if file_path.exists():
+                file_path.unlink()
+                file_deleted = True
+                self._append_log(f"Deleted file: {file_path}")
+
+        row_deleted = db.delete_record(int(record["doc_id"]))
+        self._append_log(
+            f"Deleted row: {record['doc_id']} | file deleted: {file_deleted}"
+        )
+        if not row_deleted:
+            messagebox.showerror("DMS", "Could not delete the selected database row.")
+        self.refresh_records()
+
+    def delete_database_file(self) -> None:
+        db_file = Path(self.db_path.get())
+        if not db_file.exists():
+            messagebox.showwarning("DMS", f"Database file does not exist:\n{db_file}")
+            return
+        if not messagebox.askyesno(
+            "Delete database file",
+            f"Permanently delete this database file?\n\n{db_file}",
+        ):
+            return
+        db_file.unlink()
+        self._append_log(f"Deleted database file: {db_file}")
+        self.refresh_records()
+        self.status_text.set(f"Deleted database file: {db_file}")
+
+    def _selected_record(self) -> dict | None:
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("DMS", "Select a database row first.")
+            return None
+        values = self.tree.item(selected[0], "values")
+        return dict(zip(db.RECORD_COLUMNS, values))
+
+    def _resolve_record_file(self, storage_location: str) -> Path:
+        file_path = Path(storage_location)
+        if file_path.is_absolute() or file_path.exists():
+            return file_path
+        return Path(self.db_path.get()).parent / file_path
 
     def export_db(self, format_name: str) -> None:
         records = db.fetch_records()
@@ -229,11 +355,10 @@ class DmsApp(tk.Tk):
         }
         label, extension, filetypes = details[format_name]
         export_dir = config.BASE_DIR / config.EXPORT_DIR_NAME
-        export_dir.mkdir(parents=True, exist_ok=True)
 
         selected = filedialog.asksaveasfilename(
             title=f"Save {label}",
-            initialdir=str(export_dir.resolve()),
+            initialdir=str(Path(self.db_path.get()).parent.resolve()),
             initialfile=f"document_records{extension}",
             defaultextension=extension,
             filetypes=filetypes + [("All files", "*.*")],
