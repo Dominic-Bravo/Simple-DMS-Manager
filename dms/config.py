@@ -4,6 +4,11 @@ from pathlib import Path
 # All relative paths for inbox, archive, and database will be resolved against this.
 BASE_DIR = Path("government_records")
 
+# Folder names under BASE_DIR.
+INBOX_DIR_NAME = "inbox"
+ARCHIVE_DIR_NAME = "archive"
+EXPORT_DIR_NAME = "export"
+
 # Default document types supported by the system.
 # These are used for validation during filename parsing and for creating archive subdirectories.
 DEFAULT_DOC_TYPES = {

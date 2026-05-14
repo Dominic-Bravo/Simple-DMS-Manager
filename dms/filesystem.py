@@ -30,7 +30,7 @@ def ensure_directory_structure() -> None:
     archive_base_path.mkdir(exist_ok=True)
     print(f"[FS] Archive base directory ensured: {archive_base_path}")
 
-    for doc_type in config.DEFAULT_DOC_TYPES.keys():
+    for doc_type in sorted(config.DEFAULT_DOC_TYPES):
         doc_type_archive_path = archive_base_path / doc_type
         doc_type_archive_path.mkdir(exist_ok=True)
         print(f"[FS] Archive subdirectory ensured: {doc_type_archive_path}")

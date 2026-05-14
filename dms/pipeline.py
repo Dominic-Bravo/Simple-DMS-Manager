@@ -1,5 +1,3 @@
-import os
-import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -68,11 +66,11 @@ def run_pipeline(inbox_dir: Path) -> dict:
         filename = file_path.name
         print(f"  Processing: {filename}")
 
-        parsed_data = parsing.parse_filename(filename)
-        doc_type = parsed_data.get("doc_type")
-        reference_number = parsed_data.get("reference_number")
-        is_valid_format = parsed_data.get("is_valid_format", False)
-        parsing_error_message = parsed_data.get("error")
+        parsed_data = parsing.parse_filename(filename).to_record()
+        doc_type = parsed_data["doc_type"]
+        reference_number = parsed_data["reference_number"]
+        is_valid_format = parsed_data["is_valid_format"]
+        parsing_error_message = parsed_data["error"]
 
         current_timestamp = datetime.now()
         date_indexed_str = current_timestamp.isoformat()
@@ -115,7 +113,7 @@ def run_pipeline(inbox_dir: Path) -> dict:
                 })
                 records_for_db_insert.append(record)
                 indexed_count += 1
-                print(f"  [OK]   {filename}  →  {doc_type}/")
+                print(f"  [OK]   {filename} -> {doc_type}/")
             except Exception as e:
                 # Archiving failed, but parsing was successful
                 record.update({
@@ -124,7 +122,7 @@ def run_pipeline(inbox_dir: Path) -> dict:
                 })
                 skipped_invalid_format_count += 1
                 print(f"  [FAIL] {filename} - Archiving failed: {e}")
-        elif not doc_type:
+        elif parsing_error_message and parsing_error_message.startswith("Unknown document type"):
             # Document type not recognized
             record.update({
                 "doc_type": None, # Explicitly set to None if not recognized
@@ -150,8 +148,13 @@ def run_pipeline(inbox_dir: Path) -> dict:
 
     print(f"[STEP 3] Inserting {len(records_for_db_insert)} record(s) into database...")
     if records_for_db_insert:
-        db.insert_records(records_for_db_insert)
-        print(f"[STEP 3] {len(records_for_db_insert)} record(s) inserted into {config.DB_NAME}.")
+        db.init_db()
+        inserted_count = db.insert_records(records_for_db_insert)
+        ignored_count = len(records_for_db_insert) - inserted_count
+        print(
+            f"[STEP 3] {inserted_count} new record(s) inserted into {config.DB_NAME}; "
+            f"{ignored_count} duplicate(s) ignored."
+        )
     else:
         print("[STEP 3] No new valid records to insert into the database.")
 
@@ -163,13 +166,13 @@ def run_pipeline(inbox_dir: Path) -> dict:
     else:
         print("[STEP 4] No records to export to CSV.")
 
-    print("\n────────────────────────────────────────")
+    print("\n" + "-" * 40)
     print("  PIPELINE SUMMARY")
-    print("────────────────────────────────────────")
+    print("-" * 40)
     print(f"  Indexed successfully: {indexed_count} file(s)")
     print(f"  Skipped (unknown type): {skipped_unknown_type_count} file(s)")
     print(f"  Skipped (invalid format/archiving failed): {skipped_invalid_format_count} file(s)")
-    print("────────────────────────────────────────")
+    print("-" * 40)
 
     return {
         "indexed": indexed_count,

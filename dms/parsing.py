@@ -25,6 +25,18 @@ class ParsedFilename:
     status: str = "error"  # Default status is error, updated on success or specific skip conditions
     error_message: Optional[str] = None
 
+    @property
+    def is_valid_format(self) -> bool:
+        return self.status == "success"
+
+    def to_record(self) -> dict[str, Optional[str] | bool]:
+        return {
+            "doc_type": self.doc_type,
+            "reference_number": self.reference_number,
+            "is_valid_format": self.is_valid_format,
+            "error": self.error_message,
+        }
+
 def parse_filename(filename: str) -> ParsedFilename:
     """
     Parses a filename to extract the document type and reference number.
@@ -33,8 +45,7 @@ def parse_filename(filename: str) -> ParsedFilename:
     1. `TYPE_YYYY-N.pdf` (e.g., "PR_2025-001.pdf")
     2. `TYPE-YYYY-N.pdf` (e.g., "PR-2025-001.pdf")
 
-    The document type is case-insensitive for matching but will be converted to uppercase
-    for validation against `DEFAULT_DOC_TYPES`. The `.pdf` extension is case-sensitive.
+    The document type and `.pdf` extension are case-insensitive for matching.
 
     Args:
         filename (str): The name of the file to parse.
@@ -42,12 +53,12 @@ def parse_filename(filename: str) -> ParsedFilename:
     Returns:
         ParsedFilename: A dataclass containing the parsed data, status, and any error message.
     """
-    # 1. Validate the file extension: Must be '.pdf' (case-sensitive)
-    if not filename.endswith(".pdf"):
+    # 1. Validate the file extension.
+    if Path(filename).suffix.lower() != ".pdf":
         return ParsedFilename(
             original_filename=filename,
             status="skipped",
-            error_message="File does not have a case-sensitive '.pdf' extension."
+            error_message="File does not have a '.pdf' extension."
         )
 
     # Remove the '.pdf' extension to parse the core filename

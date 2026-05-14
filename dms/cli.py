@@ -1,6 +1,7 @@
 # dms/cli.py
 
 import argparse
+import sys
 from pathlib import Path
 
 from dms import db, pipeline, config
@@ -44,10 +45,15 @@ def main():
         inbox_path = Path(args.dir)
         if not inbox_path.is_dir():
             print(f"[CLI ERROR] The specified inbox directory does not exist: {inbox_path}")
-            exit(1)
+            sys.exit(1)
         print(f"[CLI] Starting document indexing for directory: {inbox_path}")
         summary = pipeline.run_pipeline(inbox_path)
-        print(f"\n[CLI SUMMARY] Documents Indexed: {summary['indexed']} | Skipped (Unknown Type): {summary['skipped_unknown']} | Skipped (Invalid Format): {summary['skipped_invalid']}")
+        print(
+            "\n[CLI SUMMARY] "
+            f"Documents Indexed: {summary['indexed']} | "
+            f"Skipped (Unknown Type): {summary['skipped_unknown_type']} | "
+            f"Skipped (Invalid Format): {summary['skipped_invalid_format']}"
+        )
     else:
         parser.print_help()
 
