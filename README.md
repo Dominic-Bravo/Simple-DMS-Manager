@@ -37,8 +37,9 @@ Notes:
 - Files are copied to `government_records/archive/<DOC_TYPE>/`.
 - Records are stored in `government_records/records.db`.
 - Supported file extensions: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.csv`.
-- The UI can browse to an existing SQLite database, create a database wherever you choose, index a selected folder, show database records, export database data to CSV, XLSX, PDF, or DOC reports, and delete selected rows/files.
+- The UI can browse to an existing SQLite database, create a database wherever you choose, index a selected folder, show database records, view files in the selected folder, open files, export database data to CSV, XLSX, PDF, or DOC reports, convert selected files to CSV, XLSX, PDF, DOC, HTML, or TXT outputs, and delete selected rows/files.
 - In the UI, data is not forced into the project folder. Choose the database and file folder you want to view or manage.
+- File conversion is dependency-free. Text-based files such as CSV/TXT can include readable previews; binary files such as PDF/DOCX/XLSX are converted into viewable metadata/report outputs unless you save to the same extension, which copies the original file.
 
 ## Future Scope
 * Implementing an OCR (Optical Character Recognition) module to parse content directly from scanned PDFs.

@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>File Conversion Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
+    h1 { font-size: 22px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+    th { width: 180px; background: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <h1>File Conversion Report</h1>
+  <table><tr><th>Source file</th><td>government_records\inbox\PR_2025-001.pdf</td></tr><tr><th>Original name</th><td>PR_2025-001.pdf</td></tr><tr><th>Original extension</th><td>.pdf</td></tr><tr><th>File size bytes</th><td>0</td></tr><tr><th>Modified</th><td>2026-05-12 20:56:55</td></tr><tr><th>Converted</th><td>2026-05-14 22:13:51</td></tr><tr><th>Text preview</th><td>Binary file content was not extracted. This output is a viewable file report.</td></tr></table>
+</body>
+</html>

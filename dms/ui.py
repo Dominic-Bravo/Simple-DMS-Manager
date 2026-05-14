@@ -1,10 +1,11 @@
 import contextlib
 import io
+import os
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from dms import config, db, export, filesystem, pipeline
+from dms import config, conversion, db, export, filesystem, pipeline
 
 
 class DmsApp(tk.Tk):
@@ -19,10 +20,12 @@ class DmsApp(tk.Tk):
         self.inbox_dir = tk.StringVar(value="")
         self.status_text = tk.StringVar(value="Ready")
         self.records = []
+        self.folder_files = []
 
         self._build_layout()
         self._set_active_database(default_db)
         self.refresh_records()
+        self.refresh_files()
 
     def _build_layout(self) -> None:
         self.columnconfigure(0, weight=1)
@@ -136,6 +139,56 @@ class DmsApp(tk.Tk):
             side=tk.LEFT
         )
 
+        files_frame = ttk.LabelFrame(main, text="Files in Selected Folder", padding=8)
+        files_frame.columnconfigure(0, weight=1)
+        files_frame.rowconfigure(0, weight=1)
+        main.add(files_frame, weight=2)
+
+        file_columns = ("name", "type", "size", "path")
+        self.file_tree = ttk.Treeview(
+            files_frame,
+            columns=file_columns,
+            show="headings",
+            selectmode="browse",
+        )
+        file_widths = {"name": 220, "type": 80, "size": 100, "path": 520}
+        for column in file_columns:
+            self.file_tree.heading(column, text=column)
+            self.file_tree.column(
+                column,
+                width=file_widths[column],
+                minwidth=60,
+                anchor="w",
+            )
+        file_y_scroll = ttk.Scrollbar(
+            files_frame, orient=tk.VERTICAL, command=self.file_tree.yview
+        )
+        file_x_scroll = ttk.Scrollbar(
+            files_frame, orient=tk.HORIZONTAL, command=self.file_tree.xview
+        )
+        self.file_tree.configure(
+            yscrollcommand=file_y_scroll.set,
+            xscrollcommand=file_x_scroll.set,
+        )
+        self.file_tree.grid(row=0, column=0, sticky="nsew")
+        file_y_scroll.grid(row=0, column=1, sticky="ns")
+        file_x_scroll.grid(row=1, column=0, sticky="ew")
+
+        file_action_bar = ttk.Frame(files_frame)
+        file_action_bar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        ttk.Button(file_action_bar, text="Refresh Files", command=self.refresh_files).pack(
+            side=tk.LEFT, padx=(0, 8)
+        )
+        ttk.Button(file_action_bar, text="Open File", command=self.open_selected_folder_file).pack(
+            side=tk.LEFT, padx=(0, 8)
+        )
+        ttk.Button(file_action_bar, text="Convert File", command=self.convert_selected_folder_file).pack(
+            side=tk.LEFT, padx=(0, 8)
+        )
+        ttk.Button(file_action_bar, text="Delete File", command=self.delete_selected_folder_file).pack(
+            side=tk.LEFT
+        )
+
         log_frame = ttk.LabelFrame(main, text="Workflow Log", padding=8)
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
@@ -192,6 +245,7 @@ class DmsApp(tk.Tk):
         )
         if selected:
             self.inbox_dir.set(selected)
+            self.refresh_files()
             self.status_text.set(f"Inbox selected: {selected}")
 
     def initialize_workspace(self, show_message: bool = True) -> None:
@@ -215,6 +269,7 @@ class DmsApp(tk.Tk):
         output = self._capture_output(lambda: pipeline.run_pipeline(inbox))
         self._append_log(output)
         self.refresh_records()
+        self.refresh_files()
         self.status_text.set("Indexing complete")
 
     def refresh_records(self) -> None:
@@ -228,6 +283,34 @@ class DmsApp(tk.Tk):
             self.tree.insert("", tk.END, values=values)
 
         self.status_text.set(f"Loaded {len(self.records)} database record(s)")
+
+    def refresh_files(self) -> None:
+        folder = Path(self.inbox_dir.get())
+        self.folder_files = []
+        for item in self.file_tree.get_children():
+            self.file_tree.delete(item)
+
+        if not folder.is_dir():
+            return
+
+        for file_path in sorted(folder.iterdir(), key=lambda path: path.name.lower()):
+            if not file_path.is_file():
+                continue
+            stat = file_path.stat()
+            record = {
+                "name": file_path.name,
+                "type": file_path.suffix.lower() or "(none)",
+                "size": stat.st_size,
+                "path": str(file_path),
+            }
+            self.folder_files.append(record)
+            self.file_tree.insert(
+                "",
+                tk.END,
+                values=(record["name"], record["type"], record["size"], record["path"]),
+            )
+
+        self.status_text.set(f"Loaded {len(self.folder_files)} file(s)")
 
     def delete_selected_record(self) -> None:
         record = self._selected_record()
@@ -315,6 +398,82 @@ class DmsApp(tk.Tk):
             return None
         values = self.tree.item(selected[0], "values")
         return dict(zip(db.RECORD_COLUMNS, values))
+
+    def _selected_folder_file(self) -> Path | None:
+        selected = self.file_tree.selection()
+        if not selected:
+            messagebox.showwarning("DMS", "Select a file first.")
+            return None
+        values = self.file_tree.item(selected[0], "values")
+        return Path(values[3])
+
+    def open_selected_folder_file(self) -> None:
+        file_path = self._selected_folder_file()
+        if not file_path:
+            return
+        if not file_path.exists():
+            messagebox.showwarning("DMS", f"File does not exist:\n{file_path}")
+            return
+        os.startfile(file_path)
+
+    def convert_selected_folder_file(self) -> None:
+        file_path = self._selected_folder_file()
+        if not file_path:
+            return
+        if not file_path.exists():
+            messagebox.showwarning("DMS", f"File does not exist:\n{file_path}")
+            return
+
+        output_path = self._choose_file_conversion_path(file_path)
+        if not output_path:
+            return
+
+        try:
+            converted_path = conversion.convert_file(file_path, output_path)
+        except Exception as error:
+            messagebox.showerror("DMS", f"Could not convert file:\n{error}")
+            return
+
+        self._append_log(f"Converted file: {file_path} -> {converted_path}")
+        self.status_text.set(f"Converted {converted_path}")
+        messagebox.showinfo("DMS", f"Converted file saved:\n{converted_path}")
+
+    def delete_selected_folder_file(self) -> None:
+        file_path = self._selected_folder_file()
+        if not file_path:
+            return
+        if not file_path.exists():
+            messagebox.showwarning("DMS", f"File does not exist:\n{file_path}")
+            return
+        if not messagebox.askyesno(
+            "Delete file",
+            f"Permanently delete this file?\n\n{file_path}",
+        ):
+            return
+        file_path.unlink()
+        self._append_log(f"Deleted folder file: {file_path}")
+        self.refresh_files()
+
+    def _choose_file_conversion_path(self, source_path: Path) -> Path | None:
+        filetypes = [
+            ("PDF files", "*.pdf"),
+            ("Word documents", "*.doc"),
+            ("Excel workbooks", "*.xlsx"),
+            ("CSV files", "*.csv"),
+            ("HTML files", "*.html"),
+            ("Text files", "*.txt"),
+            ("All files", "*.*"),
+        ]
+        selected = filedialog.asksaveasfilename(
+            title="Convert file as",
+            initialdir=str(source_path.parent.resolve()),
+            initialfile=f"{source_path.stem}_converted.pdf",
+            defaultextension=".pdf",
+            filetypes=filetypes,
+        )
+        if not selected:
+            return None
+        return Path(selected)
 
     def _resolve_record_file(self, storage_location: str) -> Path:
         file_path = Path(storage_location)
