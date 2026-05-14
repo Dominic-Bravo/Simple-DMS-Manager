@@ -176,6 +176,7 @@ class DmsApp(tk.Tk):
             yscrollcommand=file_y_scroll.set,
             xscrollcommand=file_x_scroll.set,
         )
+        self.file_tree.bind("<Double-1>", self.open_selected_folder_item)
         self.file_tree.grid(row=0, column=0, sticky="nsew")
         file_y_scroll.grid(row=0, column=1, sticky="ns")
         file_x_scroll.grid(row=1, column=0, sticky="ew")
@@ -185,7 +186,10 @@ class DmsApp(tk.Tk):
         ttk.Button(file_action_bar, text="Refresh Files", command=self.refresh_files).pack(
             side=tk.LEFT, padx=(0, 8)
         )
-        ttk.Button(file_action_bar, text="Open File", command=self.open_selected_folder_file).pack(
+        ttk.Button(file_action_bar, text="Up", command=self.go_to_parent_folder).pack(
+            side=tk.LEFT, padx=(0, 8)
+        )
+        ttk.Button(file_action_bar, text="Open", command=self.open_selected_folder_item).pack(
             side=tk.LEFT, padx=(0, 8)
         )
         ttk.Button(file_action_bar, text="Convert File", command=self.convert_selected_folder_file).pack(
@@ -267,6 +271,13 @@ class DmsApp(tk.Tk):
             messagebox.showwarning("DMS", f"Folder does not exist:\n{folder}")
             return
         os.startfile(folder)
+
+    def go_to_parent_folder(self) -> None:
+        folder = Path(self.inbox_dir.get())
+        parent = folder.resolve().parent
+        self.inbox_dir.set(str(parent))
+        self.refresh_files()
+        self.status_text.set(f"Viewing folder: {parent}")
 
     def initialize_workspace(self, show_message: bool = True) -> None:
         output = self._capture_output(self._init_workspace)
@@ -425,12 +436,17 @@ class DmsApp(tk.Tk):
         values = self.file_tree.item(selected[0], "values")
         return Path(values[3])
 
-    def open_selected_folder_file(self) -> None:
+    def open_selected_folder_item(self, event=None) -> None:
         file_path = self._selected_folder_file()
         if not file_path:
             return
         if not file_path.exists():
             messagebox.showwarning("DMS", f"File does not exist:\n{file_path}")
+            return
+        if file_path.is_dir():
+            self.inbox_dir.set(str(file_path))
+            self.refresh_files()
+            self.status_text.set(f"Viewing folder: {file_path}")
             return
         os.startfile(file_path)
 
